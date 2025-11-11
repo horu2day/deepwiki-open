@@ -17,7 +17,12 @@
       "Bash(npm run dev:*)",
       "Bash(echo:*)",
       "Bash(findstr:*)",
-      "Bash(npx next dev:*)"
+      "Bash(npx next dev:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(timeout:*)",
+      "Bash(netsh advfirewall firewall add rule:*)",
+      "Bash(dir:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

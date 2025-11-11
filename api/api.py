@@ -182,6 +182,17 @@ async def get_model_config():
         providers = []
         default_provider = configs.get("default_provider", "google")
 
+        # Provider display name mapping
+        provider_display_names = {
+            "google": "Google",
+            "openai": "OpenAI",
+            "openrouter": "OpenRouter",
+            "ollama": "Ollama (local)",
+            "bedrock": "AWS Bedrock",
+            "azure": "Azure OpenAI",
+            "dashscope": "Dashscope"
+        }
+
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
             models = []
@@ -194,7 +205,7 @@ async def get_model_config():
             providers.append(
                 Provider(
                     id=provider_id,
-                    name=f"{provider_id.capitalize()}",
+                    name=provider_display_names.get(provider_id, provider_id.capitalize()),
                     supportsCustomModel=provider_config.get("supportsCustomModel", False),
                     models=models
                 )
