@@ -575,17 +575,20 @@ This file contains...
 
                     if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
                         text = chunk.message.content
-
-                    # Fallback to other possible attributes
-                    if not text:
-                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or getattr(chunk, 'content', None)
+                    # Fallback to other possible attributes (only string types)
+                    elif hasattr(chunk, 'response') and isinstance(getattr(chunk, 'response', None), str):
+                        text = chunk.response
+                    elif hasattr(chunk, 'text') and isinstance(getattr(chunk, 'text', None), str):
+                        text = chunk.text
+                    elif hasattr(chunk, 'content') and isinstance(getattr(chunk, 'content', None), str):
+                        text = chunk.content
 
                     # Debug: log extracted text from first few chunks
                     if chunk_count <= 3:
-                        logger.info(f"Chunk {chunk_count} extracted text: {text[:100] if text else 'EMPTY'}")
+                        logger.info(f"Chunk {chunk_count} extracted text: {text[:200] if text else 'EMPTY'}")
 
-                    # Only filter out metadata lines, keep everything else
-                    if text and not text.startswith('model=') and not text.startswith('created_at='):
+                    # Add text to response if it's not empty
+                    if text:
                         full_response += text
 
                 logger.info(f"Ollama complete response: chunks={chunk_count}, length={len(full_response)}")
