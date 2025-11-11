@@ -429,6 +429,9 @@ This file contains...
         model_config = get_model_config(request.provider, request.model)["model_kwargs"]
 
         if request.provider == "ollama":
+            logger.info(f"Using Ollama with model: {request.model}")
+            logger.info(f"Model config: {model_config}")
+
             prompt += " /no_think"
 
             model = OllamaClient()
@@ -441,6 +444,8 @@ This file contains...
                     "num_ctx": model_config["num_ctx"]
                 }
             }
+
+            logger.info(f"Final model_kwargs for Ollama: {model_kwargs}")
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,
@@ -544,12 +549,85 @@ This file contains...
             if request.provider == "ollama":
                 # Get the response and handle it properly using the previously created api_kwargs
                 response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                # Handle streaming response from Ollama
+
+                # Buffer the complete response for XML parsing
+                full_response = ""
+                chunk_count = 0
                 async for chunk in response:
-                    text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+                    chunk_count += 1
+                    # Debug: log first few chunks
+                    if chunk_count <= 3:
+                        logger.info(f"Chunk {chunk_count} type: {type(chunk)}")
+                        logger.info(f"Chunk {chunk_count} attributes: {dir(chunk)[:20]}")  # First 20 attributes
+
+                        # Check specific attributes
+                        logger.info(f"Chunk {chunk_count} - hasattr 'message': {hasattr(chunk, 'message')}")
+                        logger.info(f"Chunk {chunk_count} - hasattr 'response': {hasattr(chunk, 'response')}")
+                        logger.info(f"Chunk {chunk_count} - hasattr 'text': {hasattr(chunk, 'text')}")
+
+                        if hasattr(chunk, 'message'):
+                            logger.info(f"Chunk {chunk_count} - message type: {type(chunk.message)}")
+                            logger.info(f"Chunk {chunk_count} - message content: {getattr(chunk.message, 'content', 'NO CONTENT')}")
+
+                    # Try different attribute names for Ollama ChatResponse
+                    # Ollama uses chunk.message.content but it may be empty string initially
+                    text = None
+
+                    if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
+                        text = chunk.message.content
+
+                    # Fallback to other possible attributes
+                    if not text:
+                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or getattr(chunk, 'content', None)
+
+                    # Debug: log extracted text from first few chunks
+                    if chunk_count <= 3:
+                        logger.info(f"Chunk {chunk_count} extracted text: {text[:100] if text else 'EMPTY'}")
+
+                    # Only filter out metadata lines, keep everything else
                     if text and not text.startswith('model=') and not text.startswith('created_at='):
-                        text = text.replace('<think>', '').replace('</think>', '')
-                        await websocket.send_text(text)
+                        full_response += text
+
+                logger.info(f"Ollama complete response: chunks={chunk_count}, length={len(full_response)}")
+                if len(full_response) > 0:
+                    logger.info(f"Response preview: {full_response[:500]}...")
+
+                # Remove think tags
+                full_response = full_response.replace('<think>', '').replace('</think>', '')
+
+                # Extract and validate XML
+                xml_sent = False
+                if "<wiki_structure>" in full_response and "</wiki_structure>" in full_response:
+                    import re
+                    from xml.dom.minidom import parseString
+
+                    # Extract wiki_structure XML
+                    wiki_match = re.search(r'<wiki_structure>[\s\S]*?<\/wiki_structure>', full_response)
+                    if wiki_match:
+                        raw_xml = wiki_match.group(0)
+                        clean_xml = raw_xml.strip()
+
+                        try:
+                            # Fix common XML issues
+                            # Escape unescaped ampersands
+                            fixed_xml = re.sub(r'&(?!amp;|lt;|gt;|apos;|quot;)', '&amp;', clean_xml)
+
+                            # Parse to validate
+                            dom = parseString(fixed_xml)
+
+                            # Send the cleaned XML
+                            logger.info("Successfully parsed and validated Ollama XML response")
+                            await websocket.send_text(fixed_xml)
+                            xml_sent = True
+                        except Exception as xml_error:
+                            logger.error(f"XML parsing failed for Ollama response: {xml_error}")
+                            logger.debug(f"Raw XML content: {clean_xml[:500]}...")
+
+                # Fallback: send raw response if XML extraction failed
+                if not xml_sent:
+                    logger.warning("Sending raw Ollama response (XML extraction failed)")
+                    await websocket.send_text(full_response)
+
                 # Explicitly close the WebSocket connection after the response is complete
                 await websocket.close()
             elif request.provider == "openrouter":

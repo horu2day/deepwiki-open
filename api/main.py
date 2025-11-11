@@ -3,6 +3,10 @@ import sys
 import logging
 from dotenv import load_dotenv
 
+# Add the project root to the path so we can import the api package
+# This must be done before any local package imports.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -11,13 +15,6 @@ from api.logging_config import setup_logging
 # Configure logging
 setup_logging()
 logger = logging.getLogger(__name__)
-
-# Configure watchfiles logger to show file paths
-watchfiles_logger = logging.getLogger("watchfiles.main")
-watchfiles_logger.setLevel(logging.DEBUG)  # Enable DEBUG to see file paths
-
-# Add the current directory to the path so we can import the api package
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Apply watchfiles monkey patch BEFORE uvicorn import
 is_development = os.environ.get("NODE_ENV") != "production"
@@ -65,7 +62,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
 
     # Import the app here to ensure environment variables are set first
-    from api.api import app
 
     logger.info(f"Starting Streaming API on port {port}")
 

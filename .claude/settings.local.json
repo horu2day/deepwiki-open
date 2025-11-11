@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(taskkill:*)",
+      "Bash(timeout 5 python:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(for dir in concepts/*/)",
+      "Bash(done)",
+      "SlashCommand(/primer)",
+      "Bash(poetry install:*)",
+      "Bash(npm install)",
+      "Bash(poetry run python:*)",
+      "Bash(timeout 5 echo:*)",
+      "Bash(npm run dev:*)",
+      "Bash(echo:*)",
+      "Bash(findstr:*)",
+      "Bash(npx next dev:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
